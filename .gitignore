@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+*.spec       # PyInstaller spec file
+
+# PyInstaller output
+*.exe
+*.dll
+*.pyd
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Pytest cache
+.pytest_cache/
+
+# Environment variables (if any)
+.env
+
+# Coverage reports
+htmlcov/
+.coverage
+
+# PyInstaller spec files
+*.spec
