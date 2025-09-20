@@ -13,7 +13,6 @@ A simple command-line interface (CLI) to fetch and display the recent public act
   - Forks
 - Displays timestamps in local time.
 - Handles errors gracefully (user not found, rate limit exceeded, network issues).
-- Supports GitHub token via environment variable to avoid rate limit restrictions.
 
 ## Inspiration
 This project idea comes from [roadmap.sh](https://roadmap.sh) — a community-driven site that provides developer projects and learning roadmaps.  
