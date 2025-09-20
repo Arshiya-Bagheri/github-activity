@@ -58,14 +58,21 @@ github-activity> Arshiya-Bagheri push
 ```
 
 ## Project Structure
+
 ```
-.
-├── github_activity/       # Source code package
-│   ├── __init__.py        # Makes it a Python package
-│   └── cli.py             # Main CLI application
-├── requirements.txt       # Dependencies
-├── LICENSE                # License file (MIT)
-└── README.md              # Project documentation
+github-activity/
+├── github_activity/           # Main Python package
+│   ├── __init__.py
+│   └── cli.py                 # Main CLI application
+├── tests/                     # Unit tests
+│   ├── __init__.py
+│   └── test_cli.py
+├── dist/                      # PyInstaller output (ignored in Git)
+├── build/                     # PyInstaller temporary build files (ignored)
+├── .gitignore                 # Git ignore file
+├── requirements.txt           # Dependencies (e.g., requests)
+├── LICENSE                    # License file (MIT)
+└── README.md                  # Project documentation
 
 ```
 
