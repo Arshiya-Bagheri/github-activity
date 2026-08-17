@@ -1,33 +1,31 @@
+"""Command-line interface for the weather application."""
+
 import argparse
+import requests
 
 import github_activity.api
 
 
 
-def create_parser() -> argparse.ArgumentParser:
-
+def main():
     parser = argparse.ArgumentParser(
         prog="Github-Activity API",
         description="A simple command-line Github-Activity application"
     )
 
-    subparsers = parser.add_subparsers(
-        dest="command",
-        required=True,
-        help="Available commands"
+    parser.add_argument(
+        "username",
+        help="GitHub username to fetch activity for"
     )
 
-    
+    args = parser.parse_args()
 
+    data = github_activity.api.get_user_events(args.username)
 
-
-
-
-
-
-def main():
-    pass
-
+    print(type(data))
+    print(data[0]["type"])
+    print(data[0]["repo"]["name"])
+    print(data[0]["created_at"])
 
 
 
