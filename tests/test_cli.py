@@ -15,7 +15,7 @@ Run tests with: pytest
 
 import pytest
 from unittest.mock import patch, MagicMock
-from github_activity.cli import GitHubActivity
+from github_activity.api import GitHubActivity
 from requests.exceptions import HTTPError
 
 # -------------------------------
