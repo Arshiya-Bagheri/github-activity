@@ -22,7 +22,12 @@ def main():
         type=int,
         help="Number of events to display"
     )
-    
+
+    parser.add_argument(
+        "--event",
+        help="Filter activity by event type"
+    )
+
     args = parser.parse_args()
 
     api = GitHubAPI()
@@ -30,6 +35,12 @@ def main():
     events = api.get_user_events(args.username)
 
     handler = EventHandler()
+
+    if args.event:
+        events = [
+            event for event in events
+            if event["type"] == args.event
+        ]
 
     for event in events[:args.limit]:
         print(handler.handle(event))
