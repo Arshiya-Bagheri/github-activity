@@ -5,22 +5,7 @@ import requests
 
 from github_activity.api import GitHubAPI
 from github_activity.handler import EventHandler
-
-
-def filter_events(events, event_type=None, repo=None):
-    if event_type:
-        events = [
-            event for event in events
-            if event["type"] == event_type
-        ]
-
-    if repo:
-        events = [
-            event for event in events
-            if event["repo"]["name"].endswith(f"/{repo}")
-        ]
-
-    return events
+from github_activity.activity import GitHubActivity
 
 
 def main():
@@ -52,11 +37,16 @@ def main():
     args = parser.parse_args()
 
     api = GitHubAPI()
-
-    api = GitHubAPI()
+    handler = EventHandler()
+    activity = GitHubActivity(api, handler)
 
     try:
-        events = api.get_user_events(args.username)
+        events = activity.get_activity(
+        args.username,
+        event_type=args.event,
+        repo=args.repo,
+        limit=args.limit
+    )
 
     except requests.HTTPError as error:
         if error.response.status_code == 404:
@@ -75,17 +65,8 @@ def main():
         print(f"Error: Could not connect to GitHub: {error}")
         return
     
-    events = filter_events(
-        events,
-        event_type=args.event,
-        repo=args.repo
-    )
-
-    handler = EventHandler()
-
-    for event in events[:args.limit]:
-        print(handler.handle(event))
-
+    for event in events:
+        print(event)
 
 if __name__ == "__main__":
     main()
