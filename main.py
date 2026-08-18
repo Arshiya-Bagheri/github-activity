@@ -7,7 +7,6 @@ from github_activity.handler import EventHandler
 
 
 def main():
-
     parser = argparse.ArgumentParser(
         prog="Github-Activity API",
         description="Get the recent GitHub activity of a user."
@@ -18,6 +17,12 @@ def main():
         help="GitHub username to fetch activity for"
     )
 
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Number of events to display"
+    )
+    
     args = parser.parse_args()
 
     api = GitHubAPI()
@@ -26,9 +31,8 @@ def main():
 
     handler = EventHandler()
 
-    for event in events:
-        result = handler.handle(event)
-        print(result)
+    for event in events[:args.limit]:
+        print(handler.handle(event))
 
 
 if __name__ == "__main__":
