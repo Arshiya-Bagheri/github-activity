@@ -43,7 +43,7 @@ class GitHubActivity:
 
     def get_activity(self, username, event_type=None, repo=None, limit=None):
         try:
-            events = self.api.get_user_events(username)
+            events = self.api.get_user_events(username, limit=limit)
 
         except requests.HTTPError as error:
             status_code = error.response.status_code
@@ -75,9 +75,6 @@ class GitHubActivity:
             event_type = EVENT_TYPES[event_type]
 
         events = self.filter_events(events, event_type=event_type, repo=repo)
-
-        if limit is not None:
-            events = events[:limit]
 
         return [
             self.handler.handle(event)

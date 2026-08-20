@@ -27,7 +27,7 @@ def main():
     parser.add_argument(
         "--limit",
         type=int,
-        choices=range(1, 101),
+        choices=range(1, 301),
         metavar="N",
         help="Number of events to display (1-100)"
     )

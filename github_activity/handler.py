@@ -5,7 +5,8 @@ from github_activity.models import Activity
 
 class EventHandler:
     def handle(self, event):
-        event_type = event["type"]
+        """Convert a raw GitHub event into an Activity object."""
+        event_type = event.get("type", "UnknownEvent")
 
         handler = getattr(
             self,
@@ -15,22 +16,33 @@ class EventHandler:
 
         description, details = handler(event)
 
-        timestamp = datetime.fromisoformat(
-            event["created_at"].replace("Z", "+00:00")
-        ).astimezone()
+        created_at = event.get("created_at")
+
+        if created_at:
+            timestamp = datetime.fromisoformat(
+                created_at.replace("Z", "+00:00")
+            ).astimezone()
+        else:
+            timestamp = datetime.now().astimezone()
+
+        actor = event.get("actor", {}).get("login", "unknown")
 
         return Activity(
             timestamp=timestamp,
             type=event_type,
-            actor=event["actor"]["login"],
+            actor=actor,
             description=description,
             details=details,
         )
 
     def handle_PushEvent(self, event):
-        repo = event["repo"]["name"]
-        branch = event["payload"]["ref"].removeprefix("refs/heads/")
-        commits = event["payload"].get("commits", [])
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
+
+        ref = payload.get("ref", "")
+        branch = ref.removeprefix("refs/heads/") or "unknown branch"
+
+        commits = payload.get("commits", [])
 
         description = (
             f"Pushed {len(commits)} commits "
@@ -46,15 +58,20 @@ class EventHandler:
         return description, details
 
     def handle_CreateEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        ref_type = payload["ref_type"]
-        ref = payload["ref"]
+        ref_type = payload.get("ref_type", "unknown")
+        ref = payload.get("ref")
 
-        description = (
-            f"Created {ref_type} {ref} in {repo}"
-        )
+        if ref:
+            description = (
+                f"Created {ref_type} {ref} in {repo}"
+            )
+        else:
+            description = (
+                f"Created a {ref_type} in {repo}"
+            )
 
         details = {
             "repository": repo,
@@ -65,31 +82,43 @@ class EventHandler:
         return description, details
 
     def handle_IssueCommentEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        comment = payload["comment"]["body"]
-        issue_number = payload["issue"]["number"]
+        comment = payload.get("comment", {})
+        issue = payload.get("issue", {})
 
-        description = (
-            f"Commented on issue #{issue_number} "
-            f"in {repo}: {comment}"
-        )
+        comment_body = comment.get("body")
+        issue_number = issue.get("number")
+
+        if comment_body:
+            description = (
+                f"Commented on issue #{issue_number} "
+                f"in {repo}: {comment_body}"
+            )
+        else:
+            description = (
+                f"Commented on issue #{issue_number} "
+                f"in {repo}"
+            )
 
         details = {
             "repository": repo,
             "issue_number": issue_number,
-            "comment": comment,
+            "comment": comment_body,
         }
 
         return description, details
 
     def handle_PullRequestReviewEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        state = payload["review"]["state"]
-        pull_request_number = payload["pull_request"]["number"]
+        review = payload.get("review", {})
+        pull_request = payload.get("pull_request", {})
+
+        state = review.get("state", "unknown")
+        pull_request_number = pull_request.get("number")
 
         description = (
             f"Reviewed pull request #{pull_request_number} "
@@ -105,31 +134,40 @@ class EventHandler:
         return description, details
 
     def handle_PullRequestReviewCommentEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        comment = payload["comment"]["body"]
-        pull_request_number = payload["pull_request"]["number"]
+        comment = payload.get("comment", {})
+        pull_request = payload.get("pull_request", {})
 
-        description = (
-            f"Commented on pull request "
-            f"#{pull_request_number} in {repo}: {comment}"
-        )
+        comment_body = comment.get("body")
+        pull_request_number = pull_request.get("number")
+
+        if comment_body:
+            description = (
+                f"Commented on pull request "
+                f"#{pull_request_number} in {repo}: {comment_body}"
+            )
+        else:
+            description = (
+                f"Commented on pull request "
+                f"#{pull_request_number} in {repo}"
+            )
 
         details = {
             "repository": repo,
             "pull_request_number": pull_request_number,
-            "comment": comment,
+            "comment": comment_body,
         }
 
         return description, details
 
     def handle_DeleteEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        ref_type = payload["ref_type"]
-        ref = payload["ref"]
+        ref_type = payload.get("ref_type", "unknown")
+        ref = payload.get("ref", "unknown")
 
         description = (
             f"Deleted {ref_type} {ref} from {repo}"
@@ -144,17 +182,25 @@ class EventHandler:
         return description, details
 
     def handle_PullRequestEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        action = payload["action"]
-        number = payload["number"]
-        title = payload["pull_request"]["title"]
+        action = payload.get("action", "updated")
+        number = payload.get("number")
 
-        description = (
-            f"Pull request #{number} {action} "
-            f"in {repo}: {title}"
-        )
+        pull_request = payload.get("pull_request", {})
+        title = pull_request.get("title")
+
+        if title:
+            description = (
+                f"Pull request #{number} {action} "
+                f"in {repo}: {title}"
+            )
+        else:
+            description = (
+                f"Pull request #{number} {action} "
+                f"in {repo}"
+            )
 
         details = {
             "repository": repo,
@@ -166,17 +212,25 @@ class EventHandler:
         return description, details
 
     def handle_IssuesEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        action = payload["action"]
-        number = payload["issue"]["number"]
-        title = payload["issue"]["title"]
+        action = payload.get("action", "updated")
 
-        description = (
-            f"Issue #{number} {action} "
-            f"in {repo}: {title}"
-        )
+        issue = payload.get("issue", {})
+        number = issue.get("number")
+        title = issue.get("title")
+
+        if title:
+            description = (
+                f"Issue #{number} {action} "
+                f"in {repo}: {title}"
+            )
+        else:
+            description = (
+                f"Issue #{number} {action} "
+                f"in {repo}"
+            )
 
         details = {
             "repository": repo,
@@ -188,10 +242,15 @@ class EventHandler:
         return description, details
 
     def handle_WatchEvent(self, event):
-        repo = event["repo"]["name"]
-        action = event["payload"].get("action", "started")
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        description = f"Starred {repo}"
+        action = payload.get("action", "started")
+
+        if action == "started":
+            description = f"Starred {repo}"
+        else:
+            description = f"Watch action '{action}' on {repo}"
 
         details = {
             "repository": repo,
@@ -201,7 +260,7 @@ class EventHandler:
         return description, details
 
     def handle_PublicEvent(self, event):
-        repo = event["repo"]["name"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
 
         description = f"Made {repo} public"
 
@@ -212,15 +271,22 @@ class EventHandler:
         return description, details
 
     def handle_ReleaseEvent(self, event):
-        repo = event["repo"]["name"]
-        payload = event["payload"]
+        repo = event.get("repo", {}).get("name", "unknown repository")
+        payload = event.get("payload", {})
 
-        action = payload["action"]
-        tag = payload["release"]["tag_name"]
+        action = payload.get("action", "updated")
 
-        description = (
-            f"Release {tag} {action} in {repo}"
-        )
+        release = payload.get("release", {})
+        tag = release.get("tag_name")
+
+        if tag:
+            description = (
+                f"Release {tag} {action} in {repo}"
+            )
+        else:
+            description = (
+                f"Release {action} in {repo}"
+            )
 
         details = {
             "repository": repo,
@@ -231,8 +297,18 @@ class EventHandler:
         return description, details
 
     def handle_ForkEvent(self, event):
-        original_repo = event["repo"]["name"]
-        forked_repo = event["payload"]["forkee"]["full_name"]
+        original_repo = event.get("repo", {}).get(
+            "name",
+            "unknown repository",
+        )
+
+        payload = event.get("payload", {})
+        forkee = payload.get("forkee", {})
+
+        forked_repo = forkee.get(
+            "full_name",
+            "unknown repository",
+        )
 
         description = (
             f"Forked {original_repo} to {forked_repo}"
@@ -246,7 +322,7 @@ class EventHandler:
         return description, details
 
     def handle_unknown(self, event):
-        event_type = event["type"]
+        event_type = event.get("type", "UnknownEvent")
 
         description = f"Unsupported event: {event_type}"
 
