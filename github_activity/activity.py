@@ -17,7 +17,6 @@ EVENT_TYPES = {
     "public": "PublicEvent",
     "release": "ReleaseEvent",
     "fork": "ForkEvent",
-    
 }
 
 
@@ -63,11 +62,7 @@ class GitHubActivity:
         if event_type:
             event_type = EVENT_TYPES.get(event_type, event_type)
 
-        events = self.filter_events(
-            events,
-            event_type=event_type,
-            repo=repo
-        )
+        events = self.filter_events(events, event_type=event_type, repo=repo)
 
         if limit is not None:
             events = events[:limit]
@@ -81,14 +76,18 @@ class GitHubActivity:
     def filter_events(events, event_type=None, repo=None):
         if event_type:
             events = [
-                event for event in events
+                event
+                for event in events
                 if event["type"] == event_type
             ]
 
         if repo:
             events = [
-                event for event in events
-                if event["repo"]["name"].endswith(f"/{repo}")
+                event
+                for event in events
+                if event["repo"]["name"].endswith(
+                    f"/{repo}"
+                )
             ]
 
         return events

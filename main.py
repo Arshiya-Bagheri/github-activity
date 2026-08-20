@@ -41,7 +41,7 @@ def main():
 
     parser.add_argument(
         "--format", "-f",
-        choices=["text", "json", "csv"],
+        choices=["text", "json"],
         default="text",
         help="Output format (default: text)"
     )
@@ -60,22 +60,20 @@ def main():
 
     except UserNotFoundError:
         print(f"Error: GitHub user '{args.username}' was not found.")
+        return
 
     except RateLimitError:
         print("Error: GitHub API rate limit exceeded or access denied.")
+        return
 
     except GitHubActivityError as error:
         print(f"Error: {error}")
+        return
 
     
     if args.format == "json":
         output = github_activity.exports.format_as_json(events)
         print(output)
-
-    elif args.format == "csv":
-        output = github_activity.exports.format_as_csv(events)
-        if output:  
-            print(output, end='')
 
     else: 
         for event in events:
