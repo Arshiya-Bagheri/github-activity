@@ -3,14 +3,12 @@
 import argparse
 
 import github_activity.exports
-
 from github_activity.activity import (
     GitHubActivity,
     GitHubActivityError,
     UserNotFoundError,
     RateLimitError,
     InvalidEventTypeError,
-    InvalidDateError,
 )
 
 
@@ -44,19 +42,12 @@ def main():
 
     parser.add_argument(
         "--since",
-        help="Show activity on or after this date (YYYY-MM-DD)",
+        help="Show events after this date/time",
     )
 
     parser.add_argument(
         "--until",
-        help="Show activity on or before this date (YYYY-MM-DD)",
-    )
-
-    parser.add_argument(
-        "--sort",
-        choices=["newest", "oldest"],
-        default="newest",
-        help="Sort activity by date (default: newest)",
+        help="Show events before this date/time",
     )
 
     parser.add_argument(
@@ -79,7 +70,6 @@ def main():
             limit=args.limit,
             since=args.since,
             until=args.until,
-            sort=args.sort,
         )
 
     except UserNotFoundError:
@@ -99,23 +89,23 @@ def main():
         print(f"Error: {error}")
         return
 
-    except InvalidDateError as error:
-        print(f"Error: {error}")
-        return
-
     except GitHubActivityError as error:
         print(f"Error: {error}")
         return
+
+    # ---------------------------------------------------------
+    # Output
+    # ---------------------------------------------------------
 
     if args.format == "json":
         output = github_activity.exports.format_as_json(events)
         print(output)
 
     else:
-        for event in events:
-            print(
-                github_activity.exports.format_as_text(event)
-            )
+        github_activity.exports.print_rich_activity(
+            events,
+            args.username,
+        )
 
 
 if __name__ == "__main__":
