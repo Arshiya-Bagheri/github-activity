@@ -53,6 +53,13 @@ def main():
     )
 
     parser.add_argument(
+        "--sort",
+        choices=["newest", "oldest"],
+        default="newest",
+        help="Sort activity by date (default: newest)",
+    )
+
+    parser.add_argument(
         "--format",
         "-f",
         choices=["text", "json"],
@@ -72,6 +79,7 @@ def main():
             limit=args.limit,
             since=args.since,
             until=args.until,
+            sort=args.sort,
         )
 
     except UserNotFoundError:

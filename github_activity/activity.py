@@ -1,6 +1,6 @@
 import requests
 
-from datetime import datetime, time
+from datetime import datetime
 
 from github_activity.api import GitHubAPI
 from github_activity.handler import EventHandler
@@ -55,9 +55,13 @@ class GitHubActivity:
         limit=None,
         since=None,
         until=None,
+        sort="newest",
     ):
         try:
-            events = self.api.get_user_events(username, limit=limit)
+            events = self.api.get_user_events(
+                username,
+                limit=limit,
+            )
 
         except requests.HTTPError as error:
             status_code = error.response.status_code
@@ -96,6 +100,11 @@ class GitHubActivity:
                 "The --since date cannot be later than the --until date."
             )
 
+        if sort not in ("newest", "oldest"):
+            raise GitHubActivityError(
+                "Sort must be either 'newest' or 'oldest'."
+            )
+
         events = self.filter_events(
             events,
             event_type=event_type,
@@ -103,6 +112,14 @@ class GitHubActivity:
             since=since_date,
             until=until_date,
         )
+
+        events = self.sort_events(
+            events,
+            order=sort,
+        )
+
+        if limit is not None:
+            events = events[:limit]
 
         return [
             self.handler.handle(event)
@@ -112,7 +129,7 @@ class GitHubActivity:
     @staticmethod
     def parse_date(date_string):
         """
-        Convert a YYYY-MM-DD string into a timezone-aware datetime.
+        Convert a YYYY-MM-DD string into a date.
 
         Returns None when no date was provided.
         """
@@ -120,7 +137,7 @@ class GitHubActivity:
             return None
 
         try:
-            parsed_date = datetime.strptime(
+            return datetime.strptime(
                 date_string,
                 "%Y-%m-%d",
             ).date()
@@ -130,8 +147,6 @@ class GitHubActivity:
                 f"Invalid date '{date_string}'. "
                 f"Use the format YYYY-MM-DD."
             ) from error
-
-        return parsed_date
 
     @staticmethod
     def filter_events(
@@ -154,13 +169,16 @@ class GitHubActivity:
             events = [
                 event
                 for event in events
-                if event.get("repo", {})
-                .get("name", "")
-                .lower() == repo
-                or event.get("repo", {})
-                .get("name", "")
-                .lower()
-                .endswith(f"/{repo}")
+                if (
+                    event.get("repo", {})
+                    .get("name", "")
+                    .lower() == repo
+                    or
+                    event.get("repo", {})
+                    .get("name", "")
+                    .lower()
+                    .endswith(f"/{repo}")
+                )
             ]
 
         if since or until:
@@ -189,3 +207,20 @@ class GitHubActivity:
             events = filtered_events
 
         return events
+
+    @staticmethod
+    def sort_events(events, order="newest"):
+        """
+        Sort events by their creation timestamp.
+
+        newest:
+            Most recent events first.
+
+        oldest:
+            Oldest events first.
+        """
+        return sorted(
+            events,
+            key=lambda event: event.get("created_at", ""),
+            reverse=(order == "newest"),
+        )
