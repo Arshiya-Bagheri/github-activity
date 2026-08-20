@@ -8,6 +8,7 @@ from github_activity.activity import (
     GitHubActivityError,
     UserNotFoundError,
     RateLimitError,
+    InvalidEventTypeError,
 )
 
 
@@ -26,7 +27,9 @@ def main():
     parser.add_argument(
         "--limit",
         type=int,
-        help="Number of events to display"
+        choices=range(1, 101),
+        metavar="N",
+        help="Number of events to display (1-100)"
     )
 
     parser.add_argument(
@@ -64,6 +67,10 @@ def main():
 
     except RateLimitError:
         print("Error: GitHub API rate limit exceeded or access denied.")
+        return
+
+    except InvalidEventTypeError as error:
+        print(f"Error: {error}")
         return
 
     except GitHubActivityError as error:

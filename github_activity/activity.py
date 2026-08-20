@@ -8,7 +8,7 @@ EVENT_TYPES = {
     "push": "PushEvent",
     "create": "CreateEvent",
     "issuecomment": "IssueCommentEvent",
-    "pullrequestevent": "PullRequestReviewEvent",
+    "pullrequestreview": "PullRequestReviewEvent",
     "pullrequestreviewcomment": "PullRequestReviewCommentEvent",
     "delete": "DeleteEvent",
     "pullrequest": "PullRequestEvent",
@@ -22,6 +22,10 @@ EVENT_TYPES = {
 
 class GitHubActivityError(Exception):
     """Base exception for GitHub Activity errors."""
+
+
+class InvalidEventTypeError(GitHubActivityError):
+    """Raised when an unsupported event type is requested."""
 
 
 class UserNotFoundError(GitHubActivityError):
@@ -60,7 +64,15 @@ class GitHubActivity:
             ) from error
 
         if event_type:
-            event_type = EVENT_TYPES.get(event_type, event_type)
+            event_type = event_type.lower()
+
+            if event_type not in EVENT_TYPES:
+                raise InvalidEventTypeError(
+                    f"Unknown event type '{event_type}'. "
+                    f"Available types: {', '.join(EVENT_TYPES)}"
+                )
+
+            event_type = EVENT_TYPES[event_type]
 
         events = self.filter_events(events, event_type=event_type, repo=repo)
 
@@ -82,12 +94,13 @@ class GitHubActivity:
             ]
 
         if repo:
+            repo = repo.lower()
+
             events = [
                 event
                 for event in events
-                if event["repo"]["name"].endswith(
-                    f"/{repo}"
-                )
+                if event["repo"]["name"].lower() == repo
+                or event["repo"]["name"].lower().endswith(f"/{repo}")
             ]
 
         return events
