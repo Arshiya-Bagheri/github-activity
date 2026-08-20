@@ -57,30 +57,6 @@ class GitHubActivity:
         until=None,
         sort="newest",
     ):
-        try:
-            events = self.api.get_user_events(
-                username,
-                limit=limit,
-            )
-
-        except requests.HTTPError as error:
-            status_code = error.response.status_code
-
-            if status_code == 404:
-                raise UserNotFoundError(username) from error
-
-            if status_code == 403:
-                raise RateLimitError() from error
-
-            raise GitHubActivityError(
-                f"GitHub API returned status {status_code}."
-            ) from error
-
-        except requests.RequestException as error:
-            raise GitHubActivityError(
-                f"Could not connect to GitHub: {error}"
-            ) from error
-
         if event_type:
             event_type = event_type.lower()
 
@@ -105,19 +81,48 @@ class GitHubActivity:
                 "Sort must be either 'newest' or 'oldest'."
             )
 
-        events = self.filter_events(
-            events,
+        event_filter = lambda event: self.event_matches_filters(
+            event,
             event_type=event_type,
             repo=repo,
             since=since_date,
             until=until_date,
         )
 
+        fetch_all = sort == "oldest"
+
+        try:
+            events = self.api.get_user_events(
+                username,
+                limit=limit,
+                event_filter=event_filter,
+                fetch_all=fetch_all,
+            )
+
+        except requests.HTTPError as error:
+            status_code = error.response.status_code
+
+            if status_code == 404:
+                raise UserNotFoundError(username) from error
+
+            if status_code == 403:
+                raise RateLimitError() from error
+
+            raise GitHubActivityError(
+                f"GitHub API returned status {status_code}."
+            ) from error
+
+        except requests.RequestException as error:
+            raise GitHubActivityError(
+                f"Could not connect to GitHub: {error}"
+            ) from error
+
         events = self.sort_events(
             events,
             order=sort,
         )
 
+        # Apply the final limit AFTER sorting.
         if limit is not None:
             events = events[:limit]
 
@@ -149,6 +154,59 @@ class GitHubActivity:
             ) from error
 
     @staticmethod
+    def event_matches_filters(
+        event,
+        event_type=None,
+        repo=None,
+        since=None,
+        until=None,
+    ):
+        """
+        Return True when a raw GitHub event matches all
+        requested filters.
+        """
+
+        if event_type:
+            if event.get("type") != event_type:
+                return False
+
+        if repo:
+            repo = repo.lower()
+
+            event_repo = (
+                event.get("repo", {})
+                .get("name", "")
+                .lower()
+            )
+
+            if (
+                event_repo != repo
+                and not event_repo.endswith(f"/{repo}")
+            ):
+                return False
+
+        # Date filters
+        if since or until:
+            created_at = event.get("created_at")
+
+            if not created_at:
+                return False
+
+            event_datetime = datetime.fromisoformat(
+                created_at.replace("Z", "+00:00")
+            )
+
+            event_date = event_datetime.date()
+
+            if since and event_date < since:
+                return False
+
+            if until and event_date > until:
+                return False
+
+        return True
+
+    @staticmethod
     def filter_events(
         events,
         event_type=None,
@@ -156,57 +214,22 @@ class GitHubActivity:
         since=None,
         until=None,
     ):
-        if event_type:
-            events = [
-                event
-                for event in events
-                if event.get("type") == event_type
-            ]
+        """
+        Filter an existing list of events.
 
-        if repo:
-            repo = repo.lower()
-
-            events = [
-                event
-                for event in events
-                if (
-                    event.get("repo", {})
-                    .get("name", "")
-                    .lower() == repo
-                    or
-                    event.get("repo", {})
-                    .get("name", "")
-                    .lower()
-                    .endswith(f"/{repo}")
-                )
-            ]
-
-        if since or until:
-            filtered_events = []
-
-            for event in events:
-                created_at = event.get("created_at")
-
-                if not created_at:
-                    continue
-
-                event_datetime = datetime.fromisoformat(
-                    created_at.replace("Z", "+00:00")
-                )
-
-                event_date = event_datetime.date()
-
-                if since and event_date < since:
-                    continue
-
-                if until and event_date > until:
-                    continue
-
-                filtered_events.append(event)
-
-            events = filtered_events
-
-        return events
+        Kept as a separate public method for reuse and compatibility.
+        """
+        return [
+            event
+            for event in events
+            if GitHubActivity.event_matches_filters(
+                event,
+                event_type=event_type,
+                repo=repo,
+                since=since,
+                until=until,
+            )
+        ]
 
     @staticmethod
     def sort_events(events, order="newest"):

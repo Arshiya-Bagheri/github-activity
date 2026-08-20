@@ -11,22 +11,27 @@ class GitHubAPI:
     def __init__(self):
         self.session = requests.Session()
 
-    def get_user_events(self, username, limit=None):
+    def get_user_events(
+        self,
+        username,
+        limit=None,
+        event_filter=None,
+        fetch_all=False,
+    ):
         """
-        Fetch recent public events for a GitHub user.
+        Fetch public events for a GitHub user.
 
-        If a limit is provided, additional API pages are fetched
-        until the requested number of events is collected or
-        GitHub returns an empty page.
+        When an event_filter is provided, pages continue to be
+        fetched until enough matching events have been collected.
+
+        If fetch_all is True, all available pages are fetched.
+        This is necessary when the caller wants to sort oldest-first.
         """
         events = []
         page = 1
         per_page = 100
 
         while True:
-            if limit is not None and len(events) >= limit:
-                break
-
             params = {
                 "page": page,
                 "per_page": per_page,
@@ -37,14 +42,30 @@ class GitHubAPI:
             if not page_events:
                 break
 
-            events.extend(page_events)
+            if event_filter:
+                matching_events = [
+                    event
+                    for event in page_events
+                    if event_filter(event)
+                ]
+            else:
+                matching_events = page_events
+
+            events.extend(matching_events)
+
+            if (
+                limit is not None
+                and not fetch_all
+                and len(events) >= limit
+            ):
+                break
 
             if len(page_events) < per_page:
                 break
 
             page += 1
 
-        if limit is not None:
+        if limit is not None and not fetch_all:
             return events[:limit]
 
         return events
