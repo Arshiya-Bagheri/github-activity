@@ -7,15 +7,19 @@ class EventHandler:
 
     def handle_PushEvent(self, event):
         repo = event["repo"]["name"]
-        branch = event["payload"]["ref"]
+        branch = event["payload"]["ref"].removeprefix("refs/heads/")
+        commits = event["payload"].get("commits", [])
 
-        return f"Pushed to {repo} on {branch}"
+        return f"Pushed {len(commits)} commits to {repo} on {branch}"
 
     def handle_CreateEvent(self, event):
         repo = event["repo"]["name"]
-        ref = event["payload"]["ref"]
+        payload = event["payload"]
 
-        return f"Created {event['payload']['ref_type']} {ref} in {repo}"
+        ref_type = payload["ref_type"]
+        ref = payload["ref"]
+
+        return f"Created {ref_type} {ref} in {repo}"
 
     def handle_IssueCommentEvent(self, event):
         repo = event["repo"]["name"]
@@ -40,9 +44,6 @@ class EventHandler:
         ref = event["payload"]["ref"]
 
         return f"Deleted {event['payload']['ref_type']} {ref}"
-
-    def handle_unknown(self, event):
-        return f"Unsupported event: {event['type']}"
 
     def handle_PullRequestEvent(self, event):
         payload = event["payload"]
@@ -79,3 +80,12 @@ class EventHandler:
         tag = event["payload"]["release"]["tag_name"]
 
         return f"Release {tag} {action} in {repo}"
+
+    def handle_ForkEvent(self, event):
+        original_repo = event["repo"]["name"]
+        forked_repo = event["payload"]["forkee"]["full_name"]
+
+        return f"Forked {original_repo} to {forked_repo}"
+
+    def handle_unknown(self, event):
+        return f"Unsupported event: {event['type']}"

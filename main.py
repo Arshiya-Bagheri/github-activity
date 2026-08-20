@@ -1,11 +1,16 @@
-"""Command-line interface for the weather application."""
+"""Command-line interface for the GitHub Activity application."""
 
 import argparse
-import requests
 
-from github_activity.api import GitHubAPI
-from github_activity.handler import EventHandler
-from github_activity.activity import GitHubActivity
+import github_activity.exports
+from github_activity.activity import (
+    GitHubActivity,
+    GitHubActivityError,
+    UserNotFoundError,
+    RateLimitError,
+)
+
+
 
 
 def main():
@@ -34,40 +39,49 @@ def main():
         help="Filter activity by repository name"
     )
 
+    parser.add_argument(
+        "--format", "-f",
+        choices=["text", "json", "csv"],
+        default="text",
+        help="Output format (default: text)"
+    )
+
     args = parser.parse_args()
 
-    api = GitHubAPI()
-    handler = EventHandler()
-    activity = GitHubActivity(api, handler)
+    activity = GitHubActivity()
 
     try:
         events = activity.get_activity(
-        args.username,
-        event_type=args.event,
-        repo=args.repo,
-        limit=args.limit
-    )
+            args.username,
+            event_type=args.event,
+            repo=args.repo,
+            limit=args.limit
+        )
 
-    except requests.HTTPError as error:
-        if error.response.status_code == 404:
-            print(f"Error: GitHub user '{args.username}' was not found.")
-        elif error.response.status_code == 403:
-            print("Error: GitHub API rate limit exceeded or access denied.")
-        else:
-            print(
-                f"Error: GitHub API returned "
-                f"status {error.response.status_code}."
-            )
+    except UserNotFoundError:
+        print(f"Error: GitHub user '{args.username}' was not found.")
 
-        return
+    except RateLimitError:
+        print("Error: GitHub API rate limit exceeded or access denied.")
 
-    except requests.RequestException as error:
-        print(f"Error: Could not connect to GitHub: {error}")
-        return
+    except GitHubActivityError as error:
+        print(f"Error: {error}")
+
     
-    for event in events:
-        print(event)
+    if args.format == "json":
+        output = github_activity.exports.format_as_json(events)
+        print(output)
+
+    elif args.format == "csv":
+        output = github_activity.exports.format_as_csv(events)
+        if output:  
+            print(output, end='')
+
+    else: 
+        for event in events:
+            print(github_activity.exports.format_as_text(event))
+
+
 
 if __name__ == "__main__":
     main()
-
