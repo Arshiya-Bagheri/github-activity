@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from github_activity.models import Activity
 
 
@@ -13,8 +15,12 @@ class EventHandler:
 
         description, details = handler(event)
 
+        timestamp = datetime.fromisoformat(
+            event["created_at"].replace("Z", "+00:00")
+        ).astimezone()
+
         return Activity(
-            timestamp=event["created_at"],
+            timestamp=timestamp,
             type=event_type,
             actor=event["actor"]["login"],
             description=description,

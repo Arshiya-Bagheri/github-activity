@@ -1,4 +1,5 @@
 import requests
+from datetime import datetime
 
 from github_activity.api import GitHubAPI
 from github_activity.handler import EventHandler
@@ -18,6 +19,13 @@ EVENT_TYPES = {
     "release": "ReleaseEvent",
     "fork": "ForkEvent",
 }
+
+
+
+def format_timestamp(timestamp):
+    """Convert a GitHub UTC timestamp to local time."""
+    dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
 class GitHubActivityError(Exception):

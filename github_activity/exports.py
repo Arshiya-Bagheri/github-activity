@@ -3,8 +3,10 @@ import json
 
 def format_as_text(event):
     """Format an Activity object as human-readable text."""
+    timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
     return (
-        f"[{event.timestamp}] "
+        f"[{timestamp}] "
         f"{event.description} "
         f"by {event.actor}"
     )
@@ -14,7 +16,7 @@ def format_as_json(events):
     """Format Activity objects as JSON."""
     data = [
         {
-            "timestamp": event.timestamp,
+            "timestamp": event.timestamp.isoformat(),
             "type": event.type,
             "actor": event.actor,
             "description": event.description,

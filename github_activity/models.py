@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -7,4 +8,4 @@ class Activity:
     type: str
     actor: str
     description: str
-    details: dict
+    details: dict[str, Any]
