@@ -1,8 +1,11 @@
+"""Shared pytest fixtures for the GitHub Activity test suite."""
+
 import pytest
 
 
 @pytest.fixture
 def push_event():
+    """Return a sample GitHub PushEvent."""
     return {
         "type": "PushEvent",
         "actor": {
@@ -24,6 +27,7 @@ def push_event():
 
 @pytest.fixture
 def issue_event():
+    """Return a sample GitHub IssuesEvent."""
     return {
         "type": "IssuesEvent",
         "actor": {
@@ -45,6 +49,7 @@ def issue_event():
 
 @pytest.fixture
 def pull_request_event():
+    """Return a sample GitHub PullRequestEvent."""
     return {
         "type": "PullRequestEvent",
         "actor": {
@@ -67,6 +72,7 @@ def pull_request_event():
 
 @pytest.fixture
 def comment_event():
+    """Return a sample GitHub IssueCommentEvent."""
     return {
         "type": "IssueCommentEvent",
         "actor": {
@@ -89,6 +95,7 @@ def comment_event():
 
 @pytest.fixture
 def watch_event():
+    """Return a sample GitHub WatchEvent."""
     return {
         "type": "WatchEvent",
         "actor": {
@@ -106,6 +113,7 @@ def watch_event():
 
 @pytest.fixture
 def fork_event():
+    """Return a sample GitHub ForkEvent."""
     return {
         "type": "ForkEvent",
         "actor": {
@@ -132,6 +140,7 @@ def all_events(
     watch_event,
     fork_event,
 ):
+    """Return a collection containing all sample GitHub events."""
     return [
         push_event,
         issue_event,

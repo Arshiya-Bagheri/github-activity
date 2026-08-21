@@ -1,3 +1,5 @@
+"""Tests for GitHub Activity output formatting and terminal presentation."""
+
 import json
 from datetime import datetime, timezone
 
@@ -13,6 +15,7 @@ def make_activity(
     description="Pushed 2 commits",
     details=None,
 ):
+    """Create a sample Activity object for use in tests."""
     return Activity(
         timestamp=datetime(
             2026,
@@ -36,11 +39,10 @@ def make_activity(
 
 
 def test_format_as_text():
+    """Format an Activity object as human-readable text."""
     activity = make_activity()
 
-    result = exports.format_as_text(
-        activity
-    )
+    result = exports.format_as_text(activity)
 
     assert result == (
         "[2026-08-15 12:30:00] "
@@ -50,14 +52,13 @@ def test_format_as_text():
 
 
 def test_format_as_text_uses_activity_data():
+    """Include the actor and description from the Activity object."""
     activity = make_activity(
         actor="alice",
         description="Opened an issue",
     )
 
-    result = exports.format_as_text(
-        activity
-    )
+    result = exports.format_as_text(activity)
 
     assert "alice" in result
     assert "Opened an issue" in result
@@ -69,12 +70,14 @@ def test_format_as_text_uses_activity_data():
 
 
 def test_format_as_json_empty():
+    """Return an empty JSON list when no activities are provided."""
     result = exports.format_as_json([])
 
     assert json.loads(result) == []
 
 
 def test_format_as_json():
+    """Serialize an Activity object with all expected fields."""
     activity = make_activity(
         details={
             "repository": "testuser/test-repo",
@@ -82,9 +85,7 @@ def test_format_as_json():
         }
     )
 
-    result = exports.format_as_json(
-        [activity]
-    )
+    result = exports.format_as_json([activity])
 
     data = json.loads(result)
 
@@ -105,6 +106,7 @@ def test_format_as_json():
 
 
 def test_format_as_json_multiple_events():
+    """Serialize multiple Activity objects into a JSON list."""
     activities = [
         make_activity(
             type="PushEvent",
@@ -116,9 +118,7 @@ def test_format_as_json_multiple_events():
         ),
     ]
 
-    result = exports.format_as_json(
-        activities
-    )
+    result = exports.format_as_json(activities)
 
     data = json.loads(result)
 
@@ -133,6 +133,7 @@ def test_format_as_json_multiple_events():
 
 
 def test_print_rich_activity_empty(monkeypatch):
+    """Display a message when the user has no activity."""
     console = Console(record=True)
 
     monkeypatch.setattr(
@@ -153,6 +154,7 @@ def test_print_rich_activity_empty(monkeypatch):
 
 
 def test_print_rich_activity_header(monkeypatch):
+    """Display the username and event count in the output header."""
     console = Console(record=True)
 
     monkeypatch.setattr(
@@ -180,6 +182,7 @@ def test_print_rich_activity_header(monkeypatch):
 
 
 def test_print_rich_activity_contains_event(monkeypatch):
+    """Display an event's style label, description, and actor."""
     console = Console(record=True)
 
     monkeypatch.setattr(
@@ -206,6 +209,7 @@ def test_print_rich_activity_contains_event(monkeypatch):
 
 
 def test_print_rich_activity_footer(monkeypatch):
+    """Display the number of events in the output footer."""
     console = Console(record=True)
 
     monkeypatch.setattr(
@@ -233,6 +237,7 @@ def test_print_rich_activity_footer(monkeypatch):
 
 
 def test_print_rich_activity_all_event_styles(monkeypatch):
+    """Display the correct label for every supported event style."""
     console = Console(record=True)
 
     monkeypatch.setattr(
@@ -277,6 +282,7 @@ def test_print_rich_activity_all_event_styles(monkeypatch):
 
 
 def test_unknown_event_style(monkeypatch):
+    """Use the fallback style when an unknown event type is provided."""
     console = Console(record=True)
 
     monkeypatch.setattr(

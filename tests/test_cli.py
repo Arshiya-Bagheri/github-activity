@@ -1,3 +1,5 @@
+"""Tests for the GitHub Activity command-line interface."""
+
 import sys
 from unittest.mock import MagicMock
 
@@ -13,6 +15,7 @@ from github_activity.activity import (
 
 
 def run_cli(monkeypatch, *args):
+    """Run the CLI with the given command-line arguments."""
     monkeypatch.setattr(
         sys,
         "argv",
@@ -28,6 +31,7 @@ def run_cli(monkeypatch, *args):
 
 
 def test_cli_calls_activity(monkeypatch):
+    """Pass the username and default options to GitHubActivity."""
     activity = MagicMock()
 
     activity.get_activity.return_value = []
@@ -52,12 +56,14 @@ def test_cli_calls_activity(monkeypatch):
         until=None,
     )
 
+
 # ---------------------------------------------------------
 # Options
 # ---------------------------------------------------------
 
 
 def test_cli_passes_limit(monkeypatch):
+    """Pass the --limit option to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -80,6 +86,7 @@ def test_cli_passes_limit(monkeypatch):
 
 
 def test_cli_passes_event(monkeypatch):
+    """Pass the --event option to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -102,6 +109,7 @@ def test_cli_passes_event(monkeypatch):
 
 
 def test_cli_passes_repo(monkeypatch):
+    """Pass the --repo option to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -124,6 +132,7 @@ def test_cli_passes_repo(monkeypatch):
 
 
 def test_cli_passes_since(monkeypatch):
+    """Pass the --since option to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -146,6 +155,7 @@ def test_cli_passes_since(monkeypatch):
 
 
 def test_cli_passes_until(monkeypatch):
+    """Pass the --until option to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -168,6 +178,7 @@ def test_cli_passes_until(monkeypatch):
 
 
 def test_cli_passes_all_filters(monkeypatch):
+    """Pass all supported filtering options to GitHubActivity."""
     activity = MagicMock()
     activity.get_activity.return_value = []
 
@@ -208,6 +219,7 @@ def test_cli_passes_all_filters(monkeypatch):
 
 
 def test_cli_uses_rich_output_by_default(monkeypatch):
+    """Use Rich output when no output format is specified."""
     activity = MagicMock()
 
     events = [
@@ -242,6 +254,7 @@ def test_cli_uses_rich_output_by_default(monkeypatch):
 
 
 def test_cli_uses_json_output(monkeypatch):
+    """Use JSON formatting when --format json is specified."""
     activity = MagicMock()
 
     events = [
@@ -273,9 +286,7 @@ def test_cli_uses_json_output(monkeypatch):
         "json",
     )
 
-    json_mock.assert_called_once_with(
-        events
-    )
+    json_mock.assert_called_once_with(events)
 
 
 # ---------------------------------------------------------
@@ -284,6 +295,7 @@ def test_cli_uses_json_output(monkeypatch):
 
 
 def test_cli_user_not_found(monkeypatch, capsys):
+    """Print an error when the requested GitHub user does not exist."""
     activity = MagicMock()
 
     activity.get_activity.side_effect = (
@@ -310,6 +322,7 @@ def test_cli_user_not_found(monkeypatch, capsys):
 
 
 def test_cli_rate_limit(monkeypatch, capsys):
+    """Print an error when the GitHub API rate limit is exceeded."""
     activity = MagicMock()
 
     activity.get_activity.side_effect = (
@@ -329,13 +342,11 @@ def test_cli_rate_limit(monkeypatch, capsys):
 
     output = capsys.readouterr().out
 
-    assert (
-        "rate limit exceeded"
-        in output
-    )
+    assert "rate limit exceeded" in output
 
 
 def test_cli_invalid_event(monkeypatch, capsys):
+    """Print an error when an unsupported event type is requested."""
     activity = MagicMock()
 
     activity.get_activity.side_effect = (
@@ -361,6 +372,7 @@ def test_cli_invalid_event(monkeypatch, capsys):
 
 
 def test_cli_generic_error(monkeypatch, capsys):
+    """Print the error message for an unexpected application error."""
     activity = MagicMock()
 
     activity.get_activity.side_effect = (
@@ -391,6 +403,7 @@ def test_cli_generic_error(monkeypatch, capsys):
 
 
 def test_cli_limit_cannot_be_zero(monkeypatch):
+    """Reject a --limit value below the allowed range."""
     monkeypatch.setattr(
         sys,
         "argv",
@@ -407,6 +420,7 @@ def test_cli_limit_cannot_be_zero(monkeypatch):
 
 
 def test_cli_limit_cannot_exceed_300(monkeypatch):
+    """Reject a --limit value above the allowed range."""
     monkeypatch.setattr(
         sys,
         "argv",
@@ -423,6 +437,7 @@ def test_cli_limit_cannot_exceed_300(monkeypatch):
 
 
 def test_cli_invalid_format(monkeypatch):
+    """Reject an output format that is not supported."""
     monkeypatch.setattr(
         sys,
         "argv",

@@ -1,9 +1,12 @@
+"""Tests for the Activity data model."""
+
 from datetime import datetime, timezone
 
 from github_activity.models import Activity
 
 
 def test_activity_creation():
+    """Test that an Activity object stores all provided attributes."""
     timestamp = datetime(
         2026,
         8,
@@ -32,6 +35,7 @@ def test_activity_creation():
 
 
 def test_activity_is_dataclass():
+    """Test that Activity is implemented as a dataclass."""
     timestamp = datetime.now(timezone.utc)
 
     activity = Activity(
