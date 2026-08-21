@@ -1,11 +1,14 @@
-import requests
+"""Core logic for retrieving, filtering, sorting, and processing GitHub activity."""
 
-from datetime import datetime
+from datetime import date, datetime
+
+import requests
 
 from github_activity.api import GitHubAPI
 from github_activity.handler import EventHandler
 
 
+# Maps user-friendly event names accepted by the CLI to GitHub's official event type names.
 EVENT_TYPES = {
     "push": "PushEvent",
     "create": "CreateEvent",
@@ -23,7 +26,7 @@ EVENT_TYPES = {
 
 
 class GitHubActivityError(Exception):
-    """Base exception for GitHub Activity errors."""
+    """Base exception for errors raised by the GitHub Activity application."""
 
 
 class InvalidEventTypeError(GitHubActivityError):
@@ -35,28 +38,53 @@ class InvalidDateError(GitHubActivityError):
 
 
 class UserNotFoundError(GitHubActivityError):
-    """Raised when a GitHub user does not exist."""
+    """Raised when the requested GitHub user does not exist."""
 
 
 class RateLimitError(GitHubActivityError):
-    """Raised when the GitHub API rate limit is exceeded."""
+    """Raised when the GitHub API rate limit is exceeded or access is denied."""
 
 
 class GitHubActivity:
-    def __init__(self):
+    """Provide high-level operations for retrieving and processing GitHub activity."""
+
+    def __init__(self) -> None:
+        """Initialize the GitHub API client and event handler."""
         self.api = GitHubAPI()
         self.handler = EventHandler()
 
     def get_activity(
         self,
-        username,
-        event_type=None,
-        repo=None,
-        limit=None,
-        since=None,
-        until=None,
-        sort="newest",
-    ):
+        username: str,
+        event_type: str | None = None,
+        repo: str | None = None,
+        limit: int | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        sort: str = "newest",
+    ) -> list:
+        """Retrieve and process activity for a GitHub user.
+
+        Args:
+            username: GitHub username whose activity should be retrieved.
+            event_type: Optional event type filter, such as ``push``.
+            repo: Optional repository name filter.
+            limit: Maximum number of events to return.
+            since: Optional start date in ``YYYY-MM-DD`` format.
+            until: Optional end date in ``YYYY-MM-DD`` format.
+            sort: Sort order, either ``newest`` or ``oldest``.
+
+        Returns:
+            A list of processed GitHub activity events.
+
+        Raises:
+            InvalidEventTypeError: If ``event_type`` is not supported.
+            InvalidDateError: If a date is invalid or the date range is
+                reversed.
+            UserNotFoundError: If the GitHub user does not exist.
+            RateLimitError: If the GitHub API rate limit is exceeded.
+            GitHubActivityError: If another API or application error occurs.
+        """
         if event_type:
             event_type = event_type.lower()
 
@@ -89,6 +117,8 @@ class GitHubActivity:
             until=until_date,
         )
 
+        # When sorting oldest-first, all matching pages may need to be
+        # fetched before the complete result can be sorted.
         fetch_all = sort == "oldest"
 
         try:
@@ -117,12 +147,10 @@ class GitHubActivity:
                 f"Could not connect to GitHub: {error}"
             ) from error
 
-        events = self.sort_events(
-            events,
-            order=sort,
-        )
+        events = self.sort_events(events, order=sort)
 
-        # Apply the final limit AFTER sorting.
+        # The limit is applied after sorting so that it always returns
+        # the requested number of events from the correct end of the list.
         if limit is not None:
             events = events[:limit]
 
@@ -132,11 +160,17 @@ class GitHubActivity:
         ]
 
     @staticmethod
-    def parse_date(date_string):
-        """
-        Convert a YYYY-MM-DD string into a date.
+    def parse_date(date_string: str | None) -> date | None:
+        """Convert a ``YYYY-MM-DD`` string into a date object.
 
-        Returns None when no date was provided.
+        Args:
+            date_string: Date string to parse, or ``None``.
+
+        Returns:
+            A ``date`` object, or ``None`` if no date was provided.
+
+        Raises:
+            InvalidDateError: If the date does not use the expected format.
         """
         if date_string is None:
             return None
@@ -155,17 +189,25 @@ class GitHubActivity:
 
     @staticmethod
     def event_matches_filters(
-        event,
-        event_type=None,
-        repo=None,
-        since=None,
-        until=None,
-    ):
-        """
-        Return True when a raw GitHub event matches all
-        requested filters.
-        """
+        event: dict,
+        event_type: str | None = None,
+        repo: str | None = None,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> bool:
+        """Check whether a GitHub event matches all supplied filters.
 
+        Args:
+            event: Raw GitHub event data.
+            event_type: Optional GitHub event type to match.
+            repo: Optional repository name to match.
+            since: Optional earliest allowed event date.
+            until: Optional latest allowed event date.
+
+        Returns:
+            ``True`` if the event satisfies every supplied filter;
+            otherwise ``False``.
+        """
         if event_type:
             if event.get("type") != event_type:
                 return False
@@ -179,13 +221,13 @@ class GitHubActivity:
                 .lower()
             )
 
+            # Support both "owner/repository" and just "repository".
             if (
                 event_repo != repo
                 and not event_repo.endswith(f"/{repo}")
             ):
                 return False
 
-        # Date filters
         if since or until:
             created_at = event.get("created_at")
 
@@ -208,16 +250,26 @@ class GitHubActivity:
 
     @staticmethod
     def filter_events(
-        events,
-        event_type=None,
-        repo=None,
-        since=None,
-        until=None,
-    ):
-        """
-        Filter an existing list of events.
+        events: list[dict],
+        event_type: str | None = None,
+        repo: str | None = None,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> list[dict]:
+        """Filter an existing list of raw GitHub events.
 
-        Kept as a separate public method for reuse and compatibility.
+        This method is kept separate as a public utility for reuse and
+        compatibility with existing callers.
+
+        Args:
+            events: Raw GitHub events to filter.
+            event_type: Optional GitHub event type to match.
+            repo: Optional repository name to match.
+            since: Optional earliest allowed event date.
+            until: Optional latest allowed event date.
+
+        Returns:
+            A list containing only events that match all supplied filters.
         """
         return [
             event
@@ -232,15 +284,19 @@ class GitHubActivity:
         ]
 
     @staticmethod
-    def sort_events(events, order="newest"):
-        """
-        Sort events by their creation timestamp.
+    def sort_events(
+        events: list[dict],
+        order: str = "newest",
+    ) -> list[dict]:
+        """Sort events by their creation timestamp.
 
-        newest:
-            Most recent events first.
+        Args:
+            events: Raw GitHub events to sort.
+            order: Sort order. ``newest`` places recent events first;
+                ``oldest`` places older events first.
 
-        oldest:
-            Oldest events first.
+        Returns:
+            A new list containing the events in the requested order.
         """
         return sorted(
             events,
