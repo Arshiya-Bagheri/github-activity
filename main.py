@@ -13,15 +13,23 @@ from github_activity.activity import (
 
 
 def main():
+    """Run the GitHub Activity command-line application.
+
+    Parses command-line arguments, retrieves the user's GitHub
+    activity, handles application-specific errors, and displays
+    the results in the requested format.
+    """
     parser = argparse.ArgumentParser(
         description="Display recent GitHub activity for a user."
     )
 
+    # Required GitHub username.
     parser.add_argument(
         "username",
         help="GitHub username",
     )
 
+    # Optional filters controlling how many and which events are shown.
     parser.add_argument(
         "--limit",
         type=int,
@@ -50,6 +58,7 @@ def main():
         help="Show events before this date/time",
     )
 
+    # Output format. Text is used by default for human-readable output.
     parser.add_argument(
         "--format",
         "-f",
@@ -63,6 +72,7 @@ def main():
     activity = GitHubActivity()
 
     try:
+        # Retrieve activity using the requested filters.
         events = activity.get_activity(
             args.username,
             event_type=args.event,
@@ -72,6 +82,7 @@ def main():
             until=args.until,
         )
 
+    # command-line error messages.
     except UserNotFoundError:
         print(
             f"Error: GitHub user '{args.username}' was not found."
@@ -93,10 +104,7 @@ def main():
         print(f"Error: {error}")
         return
 
-    # ---------------------------------------------------------
-    # Output
-    # ---------------------------------------------------------
-
+    # Format and display the retrieved events.
     if args.format == "json":
         output = github_activity.exports.format_as_json(events)
         print(output)
