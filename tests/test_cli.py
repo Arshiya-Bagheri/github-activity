@@ -1,176 +1,438 @@
-"""
-test_cli.py
-
-Unit tests for the GitHubActivity CLI.
-
-Tests include:
-- Time formatting
-- Event filtering
-- All show_* commands (all, push, issues, pullrequest, issuecomment, watch, fork)
-- API fetching (mocked)
-- CLI run loop behavior
-
-Run tests with: pytest
-"""
+import sys
+from unittest.mock import MagicMock
 
 import pytest
-from unittest.mock import patch, MagicMock
-from github_activity.api import GitHubActivity
-from requests.exceptions import HTTPError
 
-# -------------------------------
-# Helper Function Tests
-# -------------------------------
-
-def test_format_time():
-    """
-    Test that format_time converts GitHub UTC timestamps correctly.
-    """
-    cli = GitHubActivity()
-    utc_str = "2025-09-20T10:00:00Z"
-    formatted = cli.format_time(utc_str)
-    assert formatted == "2025-09-20 10:00:00"
+import main
+from github_activity.activity import (
+    GitHubActivityError,
+    InvalidEventTypeError,
+    RateLimitError,
+    UserNotFoundError,
+)
 
 
-def test_filter_events():
-    """
-    Test filtering events by type.
-    """
-    cli = GitHubActivity()
+def run_cli(monkeypatch, *args):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["main.py", *args],
+    )
+
+    main.main()
+
+
+# ---------------------------------------------------------
+# Basic argument parsing
+# ---------------------------------------------------------
+
+
+def test_cli_calls_activity(monkeypatch):
+    activity = MagicMock()
+
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    activity.get_activity.assert_called_once_with(
+        "testuser",
+        event_type=None,
+        repo=None,
+        limit=None,
+        since=None,
+        until=None,
+    )
+
+# ---------------------------------------------------------
+# Options
+# ---------------------------------------------------------
+
+
+def test_cli_passes_limit(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--limit",
+        "25",
+    )
+
+    kwargs = activity.get_activity.call_args.kwargs
+
+    assert kwargs["limit"] == 25
+
+
+def test_cli_passes_event(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--event",
+        "push",
+    )
+
+    kwargs = activity.get_activity.call_args.kwargs
+
+    assert kwargs["event_type"] == "push"
+
+
+def test_cli_passes_repo(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--repo",
+        "test-repo",
+    )
+
+    kwargs = activity.get_activity.call_args.kwargs
+
+    assert kwargs["repo"] == "test-repo"
+
+
+def test_cli_passes_since(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--since",
+        "2026-08-01",
+    )
+
+    kwargs = activity.get_activity.call_args.kwargs
+
+    assert kwargs["since"] == "2026-08-01"
+
+
+def test_cli_passes_until(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--until",
+        "2026-08-20",
+    )
+
+    kwargs = activity.get_activity.call_args.kwargs
+
+    assert kwargs["until"] == "2026-08-20"
+
+
+def test_cli_passes_all_filters(monkeypatch):
+    activity = MagicMock()
+    activity.get_activity.return_value = []
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--limit",
+        "50",
+        "--event",
+        "push",
+        "--repo",
+        "test-repo",
+        "--since",
+        "2026-08-01",
+        "--until",
+        "2026-08-20",
+    )
+
+    activity.get_activity.assert_called_once_with(
+        "testuser",
+        event_type="push",
+        repo="test-repo",
+        limit=50,
+        since="2026-08-01",
+        until="2026-08-20",
+    )
+
+
+# ---------------------------------------------------------
+# Text / JSON output
+# ---------------------------------------------------------
+
+
+def test_cli_uses_rich_output_by_default(monkeypatch):
+    activity = MagicMock()
+
     events = [
-        {"type": "PushEvent"},
-        {"type": "IssuesEvent"},
-        {"type": "PushEvent"}
-    ]
-    filtered = cli.filter_events(events, "PushEvent")
-    assert len(filtered) == 2
-    assert all(e["type"] == "PushEvent" for e in filtered)
-
-
-# -------------------------------
-# Fetching Tests (Mocked)
-# -------------------------------
-
-@patch("github_activity.cli.requests.get")
-def test_fetch_activity_success(mock_get):
-    """
-    Test fetch_activity returns JSON data on successful request.
-    """
-    cli = GitHubActivity()
-
-    # Mock successful response
-    mock_response = MagicMock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = [{"type": "PushEvent"}]
-    mock_get.return_value = mock_response
-
-    data = cli.fetch_activity("fakeuser")
-    assert isinstance(data, list)
-    assert data[0]["type"] == "PushEvent"
-
-
-@patch("github_activity.cli.requests.get")
-def test_fetch_activity_http_error(mock_get):
-    """
-    Test fetch_activity handles HTTP errors properly.
-    """
-    cli = GitHubActivity()
-
-    # Mock HTTPError (404)
-    mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = HTTPError("404 Client Error")
-    mock_response.status_code = 404
-    mock_get.return_value = mock_response
-
-    data = cli.fetch_activity("nonexistentuser")
-    assert data is None
-
-
-# -------------------------------
-# Show Method Tests
-# -------------------------------
-
-@patch.object(GitHubActivity, "fetch_activity")
-def test_show_all(fetch_mock):
-    """
-    Test show_all prints activity for all event types.
-    """
-    cli = GitHubActivity()
-    fetch_mock.return_value = [
-        {"type": "PushEvent", "repo": {"name": "repo1"}, "payload": {"commits": [{}]}, "created_at": "2025-09-20T10:00:00Z"},
-        {"type": "IssuesEvent", "repo": {"name": "repo2"}, "payload": {"action": "opened", "issue": {"number": 1, "title": "Bug"}}, "created_at": "2025-09-20T10:01:00Z"},
-        {"type": "PullRequestEvent", "repo": {"name": "repo3"}, "payload": {"action": "closed", "pull_request": {"number": 5, "title": "Feature"}}, "created_at": "2025-09-20T10:02:00Z"},
-        {"type": "IssueCommentEvent", "repo": {"name": "repo4"}, "payload": {"comment": {"body": "Nice!"}, "issue": {"number": 2}}, "created_at": "2025-09-20T10:03:00Z"},
-        {"type": "WatchEvent", "repo": {"name": "repo5"}, "payload": {}, "created_at": "2025-09-20T10:04:00Z"},
-        {"type": "ForkEvent", "repo": {"name": "repo6"}, "payload": {"forkee": {"full_name": "user/repo6"}}, "created_at": "2025-09-20T10:05:00Z"}
+        MagicMock(),
     ]
 
-    with patch("builtins.print") as mock_print:
-        cli.show_all("user", fetch_mock.return_value)
-        assert mock_print.call_count >= 6  # At least one print per event
+    activity.get_activity.return_value = events
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    rich_mock = MagicMock()
+
+    monkeypatch.setattr(
+        main.github_activity.exports,
+        "print_rich_activity",
+        rich_mock,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    rich_mock.assert_called_once_with(
+        events,
+        "testuser",
+    )
 
 
-@patch.object(GitHubActivity, "fetch_activity")
-def test_user_commands(fetch_mock):
-    """
-    Test each individual user command prints expected output.
-    """
-    cli = GitHubActivity()
+def test_cli_uses_json_output(monkeypatch):
+    activity = MagicMock()
 
-    # Mock a generic event for each type
-    events = {
-        "push": [{"type": "PushEvent", "repo": {"name": "repo"}, "payload": {"commits": [{}]}, "created_at": "2025-09-20T10:00:00Z"}],
-        "issues": [{"type": "IssuesEvent", "repo": {"name": "repo"}, "payload": {"action": "opened", "issue": {"number": 1, "title": "Bug"}}, "created_at": "2025-09-20T10:01:00Z"}],
-        "pullrequest": [{"type": "PullRequestEvent", "repo": {"name": "repo"}, "payload": {"action": "closed", "pull_request": {"number": 2, "title": "Feature"}}, "created_at": "2025-09-20T10:02:00Z"}],
-        "issuecomment": [{"type": "IssueCommentEvent", "repo": {"name": "repo"}, "payload": {"comment": {"body": "Nice!"}, "issue": {"number": 3}}, "created_at": "2025-09-20T10:03:00Z"}],
-        "watch": [{"type": "WatchEvent", "repo": {"name": "repo"}, "payload": {}, "created_at": "2025-09-20T10:04:00Z"}],
-        "fork": [{"type": "ForkEvent", "repo": {"name": "repo"}, "payload": {"forkee": {"full_name": "user/repo"}}, "created_at": "2025-09-20T10:05:00Z"}],
-    }
+    events = [
+        MagicMock(),
+    ]
 
-    for cmd, event_list in events.items():
-        fetch_mock.return_value = event_list
-        with patch("builtins.print") as mock_print:
-            cli.user_commands[cmd]("user", event_list)
-            mock_print.assert_called()  # Ensure print is called
+    activity.get_activity.return_value = events
 
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
 
-# -------------------------------
-# Run Loop Tests (Mocked Input)
-# -------------------------------
+    json_mock = MagicMock(
+        return_value='[{"type": "PushEvent"}]'
+    )
 
-@patch("builtins.input", side_effect=["help", "exit"])
-def test_run_help_exit(mock_input):
-    """
-    Test the run loop with 'help' command followed by 'exit'.
-    """
-    cli = GitHubActivity()
-    with patch("builtins.print") as mock_print:
-        cli.run()
-        # Check that the help text is printed
-        help_calls = [call for call in mock_print.call_args_list if "Available commands" in str(call)]
-        assert help_calls
+    monkeypatch.setattr(
+        main.github_activity.exports,
+        "format_as_json",
+        json_mock,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+        "--format",
+        "json",
+    )
+
+    json_mock.assert_called_once_with(
+        events
+    )
 
 
-@patch("builtins.input", side_effect=["nonexistentuser", "exit"])
-@patch.object(GitHubActivity, "fetch_activity", return_value=None)
-def test_run_nonexistent_user(mock_fetch, mock_input):
-    """
-    Test the run loop with a nonexistent GitHub username.
-    """
-    cli = GitHubActivity()
-    with patch("builtins.print") as mock_print:
-        cli.run()
-        mock_fetch.assert_called_with("nonexistentuser")
+# ---------------------------------------------------------
+# Error handling
+# ---------------------------------------------------------
 
 
-@patch("builtins.input", side_effect=KeyboardInterrupt)
-def test_run_keyboard_interrupt(mock_input):
-    """
-    Test that the CLI handles KeyboardInterrupt gracefully.
-    """
-    cli = GitHubActivity()
-    with patch("builtins.print") as mock_print:
-        cli.run()
-        # Check that exit message is printed
-        exit_calls = [call for call in mock_print.call_args_list if "Exiting" in str(call)]
-        assert exit_calls
+def test_cli_user_not_found(monkeypatch, capsys):
+    activity = MagicMock()
+
+    activity.get_activity.side_effect = (
+        UserNotFoundError("testuser")
+    )
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    output = capsys.readouterr().out
+
+    assert (
+        "GitHub user 'testuser' was not found"
+        in output
+    )
+
+
+def test_cli_rate_limit(monkeypatch, capsys):
+    activity = MagicMock()
+
+    activity.get_activity.side_effect = (
+        RateLimitError()
+    )
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    output = capsys.readouterr().out
+
+    assert (
+        "rate limit exceeded"
+        in output
+    )
+
+
+def test_cli_invalid_event(monkeypatch, capsys):
+    activity = MagicMock()
+
+    activity.get_activity.side_effect = (
+        InvalidEventTypeError(
+            "Unknown event type 'banana'."
+        )
+    )
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    output = capsys.readouterr().out
+
+    assert "Unknown event type" in output
+
+
+def test_cli_generic_error(monkeypatch, capsys):
+    activity = MagicMock()
+
+    activity.get_activity.side_effect = (
+        GitHubActivityError(
+            "Something went wrong."
+        )
+    )
+
+    monkeypatch.setattr(
+        main,
+        "GitHubActivity",
+        lambda: activity,
+    )
+
+    run_cli(
+        monkeypatch,
+        "testuser",
+    )
+
+    output = capsys.readouterr().out
+
+    assert "Something went wrong." in output
+
+
+# ---------------------------------------------------------
+# argparse validation
+# ---------------------------------------------------------
+
+
+def test_cli_limit_cannot_be_zero(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "main.py",
+            "testuser",
+            "--limit",
+            "0",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+
+def test_cli_limit_cannot_exceed_300(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "main.py",
+            "testuser",
+            "--limit",
+            "301",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        main.main()
+
+
+def test_cli_invalid_format(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "main.py",
+            "testuser",
+            "--format",
+            "xml",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        main.main()
