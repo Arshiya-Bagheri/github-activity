@@ -1,3 +1,5 @@
+"""Utilities for formatting and displaying GitHub activity events."""
+
 import json
 
 from rich.console import Console
@@ -9,6 +11,8 @@ from rich.text import Text
 console = Console()
 
 
+# Maps GitHub event types to their terminal display label,
+# Rich color, and representative icon.
 EVENT_STYLES = {
     "PushEvent": ("PUSH", "green", "🚀"),
     "CreateEvent": ("CREATE", "cyan", "✨"),
@@ -26,8 +30,16 @@ EVENT_STYLES = {
 
 
 def format_as_text(event):
-    """Format an Activity object as plain human-readable text."""
+    """Format a single Activity object as human-readable text.
 
+    Args:
+        event: Activity object containing the event timestamp,
+            description, and actor.
+
+    Returns:
+        A formatted string containing the event timestamp,
+        description, and actor.
+    """
     timestamp = event.timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
     return (
@@ -38,8 +50,14 @@ def format_as_text(event):
 
 
 def format_as_json(events):
-    """Format Activity objects as JSON."""
+    """Serialize Activity objects into a formatted JSON string.
 
+    Args:
+        events: Iterable of Activity objects to serialize.
+
+    Returns:
+        A JSON-formatted string containing the activity data.
+    """
     data = [
         {
             "timestamp": event.timestamp.isoformat(),
@@ -55,11 +73,17 @@ def format_as_json(events):
 
 
 def print_rich_activity(events, username):
-    """
-    Display GitHub activity using Rich.
+    """Display GitHub activity in a formatted Rich terminal interface.
 
-    This function is responsible only for terminal presentation.
-    It does not modify Activity objects or application logic.
+    This function is responsible only for presentation. It does not
+    modify Activity objects or perform API requests.
+
+    Args:
+        events: Iterable of Activity objects to display.
+        username: GitHub username whose activity is being displayed.
+
+    Returns:
+        None.
     """
 
     if not events:
@@ -72,13 +96,10 @@ def print_rich_activity(events, username):
         )
         return
 
-    # ---------------------------------------------------------
-    # Header
-    # ---------------------------------------------------------
-
+    # Display a summary header containing the user and event count.
     header = Text()
     header.append("GitHub Activity\n", style="bold cyan")
-    header.append(f"User: ", style="bold")
+    header.append("User: ", style="bold")
     header.append(username, style="bold white")
     header.append("    ")
     header.append("Events: ", style="bold")
@@ -92,10 +113,7 @@ def print_rich_activity(events, username):
         )
     )
 
-    # ---------------------------------------------------------
-    # Activity table
-    # ---------------------------------------------------------
-
+    # Build the table used to display individual activity events.
     table = Table(
         show_header=True,
         show_lines=True,
@@ -130,6 +148,8 @@ def print_rich_activity(events, username):
     )
 
     for event in events:
+        # Fall back to a generic style if a new/unsupported
+        # GitHub event type is encountered.
         label, color, icon = EVENT_STYLES.get(
             event.type,
             ("UNKNOWN", "white", "❓"),
@@ -157,10 +177,7 @@ def print_rich_activity(events, username):
 
     console.print(table)
 
-    # ---------------------------------------------------------
-    # Footer
-    # ---------------------------------------------------------
-
+    # Show a short summary after the table.
     console.print(
         f"\n[bold green]✓[/bold green] "
         f"[dim]{len(events)} event(s) displayed.[/dim]"
